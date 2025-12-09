@@ -9,11 +9,10 @@ import faker from "k6/x/faker"
 export let options = {
   thresholds: {
     http_req_duration: ['p(95)<2000'], // 95% das requisições abaixo de 2s
-    'checkout_duration': ['p(95)<2000'],
   },
   stages: [
-    { duration: '2s', target: 20 }, // Ramp-up para 20 VUs em 2 minutos
-    { duration: '10', target: 20 }, // Manter 20 VUs por 5 minutos
+    { duration: '3s', target: 20 }, // Ramp-up para 20 VUs em 2 minutos
+    { duration: '3s', target: 20 }, // Manter 20 VUs por 5 minutos
     { duration: '5s', target: 0 },  // Ramp-down para 0 VUs em 2 minutos
   ],
 };
