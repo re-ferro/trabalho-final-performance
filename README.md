@@ -1,218 +1,75 @@
-# API Checkout Rest e GraphQL
+# Conceitos usados e explicados
 
-Se você é aluno da Pós-Graduação em Automação de Testes de Software (Turma 2), faça um fork desse repositório e boa sorte em seu trabalho de conclusão da disciplina.
+---
 
-## Instalação
-
-```bash
-npm install express jsonwebtoken swagger-ui-express apollo-server-express graphql
+**Thresholds:** Aqui, o threshold garante que 95% das requisições HTTP devem ser concluídas em menos de 2 segundos. Exemplo em `login.test.js`:
+```js
+thresholds: {
+    http_req_duration: ['p(95)<2000'], // 95% das requisições abaixo de 2s
+},
 ```
 
-## Exemplos de chamadas
-
-### REST
-
-#### Registro de usuário
-```bash
-curl -X POST http://localhost:3000/api/users/register \
-	-H "Content-Type: application/json" \
-	-d '{"name":"Novo Usuário","email":"novo@email.com","password":"senha123"}'
+**Checks:** Checks validam se a resposta atende critérios, como status HTTP. Exemplo em `login.test.js`:
+```js
+check(res, { 'login status 200': (r) => r.status === 200 });
 ```
 
-#### Login
-```bash
-curl -X POST http://localhost:3000/api/users/login \
-	-H "Content-Type: application/json" \
-	-d '{"email":"novo@email.com","password":"senha123"}'
+**Helpers:** Funções utilitárias para reaproveitar código, como login, baseUrl e geração de email. Exemplo em `login.test.js`
+```js
+import { getBaseUrl } from './helpers/baseUrl.js';
 ```
 
-#### Checkout (boleto)
-```bash
-curl -X POST http://localhost:3000/api/checkout \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer <TOKEN_JWT>" \
-	-d '{
-		"items": [{"productId":1,"quantity":2}],
-		"freight": 20,
-		"paymentMethod": "boleto"
-	}'
+**Trends:** Métricas customizadas para monitorar valores ao longo do tempo. Exemplo em `checkout.test.js`
+```js
+const checkoutTrend = new Trend('checkout_duration');
+// ...
+checkoutTrend.add(res.timings.duration);
 ```
 
-#### Checkout (cartão de crédito)
-```bash
-curl -X POST http://localhost:3000/api/checkout \
-	-H "Content-Type: application/json" \
-	-H "Authorization: Bearer <TOKEN_JWT>" \
-	-d '{
-		"items": [{"productId":2,"quantity":1}],
-		"freight": 15,
-		"paymentMethod": "credit_card",
-		"cardData": {
-			"number": "4111111111111111",
-			"name": "Nome do Titular",
-			"expiry": "12/30",
-			"cvv": "123"
-		}
-	}'
+**Faker:** Geração de dados fictícios para testes. Exemplo em `checkout.test.js`:
+```js
+const email = generateRandomEmail();
+const password = faker.internet.password();
+const name = faker.person.firstName();
 ```
 
-### GraphQL
-
-#### Registro de usuário
-Mutation:
-```graphql
-mutation Register($name: String!, $email: String!, $password: String!) {
-  register(name: $name, email: $email, password: $password) {
-    email
-    name
-  }
-}
-
-Variables:
-{
-  "name": "Julio",
-  "email": "julio@abc.com",
-  "password": "123456"
+**Variável de Ambiente:** Permite configurar valores dinâmicos, como a URL base. Exemplo em `helpers/baseUrl.js`:
+```js
+export function getBaseUrl() {
+  return __ENV.BASE_URL || 'http://localhost:3001';
 }
 ```
 
-#### Login
-Mutation:
-```graphql
-mutation Login($email: String!, $password: String!) {
-  login(email: $email, password: $password) {
-    token
-  }
-}
-
-Variables:
-{
-  "email": "alice@email.com",
-  "password": "123456"
-}
-```
-
-
-#### Checkout (boleto)
-Mutation (envie o token JWT no header Authorization: Bearer <TOKEN_JWT>):
-```graphql
-mutation Checkout($items: [CheckoutItemInput!]!, $freight: Float!, $paymentMethod: String!, $cardData: CardDataInput) {
-  checkout(items: $items, freight: $freight, paymentMethod: $paymentMethod, cardData: $cardData) {
-    freight
-    items {
-      productId
-      quantity
-    }
-    paymentMethod
-    userId
-    valorFinal
-  }
-}
-
-Variables:
-{
-  "items": [
-    {
-      "productId": 1,
-      "quantity": 2
-    },
-    {
-      "productId": 2,
-      "quantity": 1
-    }
+**Stages:** Define fases de carga no teste. Exemplo:
+em `checkout.test.js`
+```js
+  stages: [
+    { duration: '3s', target: 20 }, 
+    { duration: '3s', target: 20 }, 
+    { duration: '5s', target: 0 },  
   ],
-  "freight": 10,
-  "paymentMethod": "boleto"
-}
 ```
 
-#### Checkout (cartão de crédito)
-Mutation (envie o token JWT no header Authorization: Bearer <TOKEN_JWT>):
-```graphql
-mutation {
-	checkout(
-		items: [{productId: 2, quantity: 1}],
-		freight: 15,
-		paymentMethod: "credit_card",
-		cardData: {
-			number: "4111111111111111",
-			name: "Nome do Titular",
-			expiry: "12/30",
-			cvv: "123"
-		}
-	) {
-		valorFinal
-		paymentMethod
-		freight
-		items { productId quantity }
-	}
-}
-
-Variables:
-{
-  "items": [
-    {
-      "productId": 1,
-      "quantity": 2
-    },
-    {
-      "productId": 2,
-      "quantity": 1
-    }
-  ],
-  "freight": 10,
-  "paymentMethod": "credit_card",
-  "cardData": {
-    "cvv": "123",
-    "expiry": "10/04",
-    "name": "Julio Costa",
-    "number": "1234432112344321"
-  }
-}
+**Reaproveitamento de Resposta:** Utiliza dados de uma resposta em requisições seguintes. Exemplo em `helpers/login.js`:
+```js
+const token = res.json('token') || res.json('data.token');
+return token;
 ```
 
-#### Consulta de usuários
-Query:
-```graphql
-query Users {
-  users {
-    email
-    name
-  }
-}
+**Uso de Token de Autenticação:** Utiliza o token JWT para autenticar requisições. Exemplo em `helpers/login.js`:
+```js
+const token = res.json('token') || res.json('data.token');
+return token;
 ```
 
-## Como rodar
-
-### REST
-```bash
-node rest/server.js
+**Data-Driven Testing:** Testes baseados em dados externos, como arquivos JSON. Exemplo em `login.test.js`:
+```js
+const users = new SharedArray('users', function () {
+  return JSON.parse(open('./data/login.test.data.json'));
+});
 ```
-Acesse a documentação Swagger em [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
 
-### GraphQL
-```bash
-node graphql/app.js
+**Groups:** Agrupamento de etapas do teste para melhor organização. Exemplo em `checkout.test.js`:
+```js
+group('Registro de usuário', () => { ... });
 ```
-Acesse o playground GraphQL em [http://localhost:4000/graphql](http://localhost:4000/graphql)
-
-## Endpoints REST
-- POST `/api/users/register` — Registro de usuário
-- POST `/api/users/login` — Login (retorna token JWT)
-- POST `/api/checkout` — Checkout (requer token JWT)
-
-## Regras de Checkout
-- Só pode fazer checkout com token JWT válido
-- Informe lista de produtos, quantidades, valor do frete, método de pagamento e dados do cartão se necessário
-- 5% de desconto no valor total se pagar com cartão
-- Resposta do checkout contém valor final
-
-## Banco de dados
-- Usuários e produtos em memória (veja arquivos em `src/models`)
-
-## Testes
-- Para testes automatizados, importe o `app` de `rest/app.js` ou `graphql/app.js` sem o método `listen()`
-
-## Documentação
-- Swagger disponível em `/api-docs`
-- Playground GraphQL disponível em `/graphql`
